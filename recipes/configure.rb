@@ -31,58 +31,6 @@ else
   end
 end
 
-template File.join(node[:repmgr][:pg_home], '.pgpass') do
-  source 'pgpass.erb'
-  owner node[:repmgr][:system_user]
-  variables(
-    :password => pg_pass || node[:repmgr][:replication][:user_password]
-  )
-  mode 0600
-end
-
-
-if(node[:repmgr][:data_bag][:encrypted])
-  if(node[:repmgr][:data_bag][:secret])
-    secret = Chef::EncryptedDataBagItem.load_secret(node[:repmgr][:data_bag][:secret])
-  end
-  key_bag = Chef::EncryptedDataBagItem.load(
-    node[:repmgr][:data_bag][:name],
-    node[:repmgr][:data_bag][:item],
-    secret
-  )
-else
-  key_bag = data_bag_item(node[:repmgr][:data_bag][:name], node[:repmgr][:data_bag][:item])
-end
-
-directory File.join(node[:repmgr][:pg_home], '.ssh') do
-  mode 0755
-  owner node[:repmgr][:system_user]
-  group node[:repmgr][:system_user]
-end
-
-file File.join(node[:repmgr][:pg_home], '.ssh/authorized_keys') do
-  content key_bag['public_key']
-  mode 0644
-  owner node[:repmgr][:system_user]
-  group node[:repmgr][:system_user]
-end
-
-file File.join(node[:repmgr][:pg_home], '.ssh/id_rsa') do
-  content key_bag['private_key']
-  mode 0600
-  owner node[:repmgr][:system_user]
-  group node[:repmgr][:system_user]
-end
-
-template File.join(node[:repmgr][:pg_home], '.ssh/config') do
-  source 'ssh_config.erb'
-  mode 0644
-  owner node[:repmgr][:system_user]
-  group node[:repmgr][:system_user]
-  variables( :hosts => node[:repmgr][:ssh_ignore_hosts] )
-  only_if { node[:repmgr][:ssh_ignore_hosts_enabled] }
-end
-
 include_recipe 'repmgr::repmgr_conf'
 
 if(node[:repmgr][:replication][:role] == 'master')
@@ -133,7 +81,7 @@ else
   
   if(master_node)
     node.default[:repmgr][:addressing][:master] = master_node[:repmgr][:addressing][:self]
-    file '/var/lib/postgresql/.ssh/known_hosts' do
+    file '/home/ubuntu/.ssh/known_hosts' do
       content %x{ssh-keyscan #{node[:repmgr][:addressing][:master]}}
     end
   end
